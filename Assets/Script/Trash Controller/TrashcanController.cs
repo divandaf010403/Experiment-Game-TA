@@ -4,7 +4,7 @@ using UnityEngine;
 
 public class TrashcanController : MonoBehaviour
 {
-    [SerializeField] private string jenisTempatSampah = "Organik";
+    [SerializeField] public string jenisTempatSampah = "Organik";
     // Start is called before the first frame update
     void Start()
     {

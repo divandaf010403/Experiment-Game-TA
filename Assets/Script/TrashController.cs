@@ -9,6 +9,7 @@ public class TrashController : MonoBehaviour, Interactable, IInventoryItem
     public string InteractionPrompt => _prompt;
     public Sprite _image = null;
     public string jenisSampahNama;
+
     public bool Interact(Interactions interactions)
     {
         var interactKey = interactions.GetComponent<InteractKey>();

@@ -2,6 +2,8 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using System;
+using UnityEngine.UI;
+using Unity.VisualScripting;
 
 public class Inventory : MonoBehaviour
 {
@@ -9,6 +11,26 @@ public class Inventory : MonoBehaviour
     private List<IInventoryItem> mItem = new List<IInventoryItem>();
     public event EventHandler<InventoryEventArgs> ItemAdded;
     public event EventHandler<InventoryEventArgs> ItemRemoved;
+
+    [Header("Pilihan Inventory")]
+    public ItemClickHandler[] itemSelected;
+    public int defaultSelectedItemIndex = -1;
+
+    private void Start()
+    {
+        ChangedSelectedSlot(0);
+    }
+
+    public void ChangedSelectedSlot(int newValue)
+    {
+        if (defaultSelectedItemIndex >= 0)
+        {
+            itemSelected[defaultSelectedItemIndex].Deselected();
+        }
+
+        itemSelected[newValue].Selected();
+        defaultSelectedItemIndex = newValue;
+    }
 
     public void AddItem(IInventoryItem item)
     {

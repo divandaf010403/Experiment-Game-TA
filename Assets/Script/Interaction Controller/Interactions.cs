@@ -18,15 +18,22 @@ public class Interactions : MonoBehaviour
     [Header("Get Component")]
     MainCharMovement mainChar;
     public Inventory inventory;
+    TrashcanController trashcanController;
 
-    [Header("Test")]
-    public Sprite imgTest;
+    [Header("Inventory")]
+    GameObject otherGameObject;
+    Transform inventoryPanel;
+    bool item1Found = false;
+    bool item2Found = false;
 
     // Start is called before the first frame update
     void Start()
     {
         mainChar = GetComponent<MainCharMovement>();
         buttonInteract.SetActive(false);
+
+        otherGameObject = GameObject.Find("Screen");
+        inventoryPanel = otherGameObject.transform.Find("Inventory");
 
         inventory.ItemAdded += InventoryScript_ItemAdded;
         inventory.ItemRemoved += InventoryScript_ItemRemoved;
@@ -36,60 +43,82 @@ public class Interactions : MonoBehaviour
     void Update()
     {
         _numFound = Physics.OverlapSphereNonAlloc(_interactPoint.position, _interactPointRadius, _colliders, _interactLayerMask);
-        Transform btnTransform = transform;
-        TextMeshProUGUI btnConTxt = btnTransform.GetComponent<TextMeshProUGUI>();
+
+        for (int i = 0; i < _numFound; i++)
+        {
+            if (_colliders[i].CompareTag("Item"))
+            {
+                item1Found = true;
+                item2Found = false;
+            }
+            else if (_colliders[i].CompareTag("Trashcan"))
+            {
+                item1Found = false;
+                item2Found = true;
+            }
+            else
+            {
+                Debug.Log("Tidak Terdeteksi");
+                item1Found = false;
+                item2Found = false;
+            }
+        }
 
         if (_numFound > 0)
         {
-            buttonInteract.SetActive(true);
-            btnConTxt.text = "E";
-            
-        } else
+            if (item1Found)
+            {
+                buttonInteract.SetActive(true);
+            }
+            else if (item2Found)
+            {
+                buttonInteract.SetActive(true);
+            }
+        }
+        else
         {
             buttonInteract.SetActive(false);
-            btnConTxt.text = "";
         }
     }
 
     public void buttonCondition()
     {
-        Transform btnTransform = transform;
-        TextMeshPro btnConTxt = btnTransform.GetComponent<TextMeshPro>();
-        if (btnConTxt.text == "E")
+        if (_numFound > 0)
         {
-            removeItem();
+            if (item1Found)
+            {
+                removeItem();
+            }
+            else if (item2Found)
+            {
+                Interact_Trashcan();
+            }
         }
-        else if (btnConTxt.text == "A")
+        else
         {
-
+            buttonInteract.SetActive(false);
         }
     }
 
 
     public void removeItem()
     {
-        if (_numFound == 1)
+        var interactableItem = _colliders[0].GetComponent<Interactable>();
+        IInventoryItem item = _colliders[0].GetComponent<IInventoryItem>();
+
+        if (interactableItem != null)
         {
-            var interactableItem = _colliders[0].GetComponent<Interactable>();
-            IInventoryItem item = _colliders[0].GetComponent<IInventoryItem>();
+            interactableItem.Interact(this);
+        }
 
-            if (interactableItem != null)
-            {
-                interactableItem.Interact(this);
-            }
-
-            if (item != null)
-            {
-                inventory.AddItem(item);
-            }
+        if (item != null)
+        {
+            inventory.AddItem(item);
         }
     }
 
     private void InventoryScript_ItemAdded(object sender, InventoryEventArgs e)
     {
-        GameObject otherGameObject = GameObject.Find("Screen");
-        Transform inventoryPanel = otherGameObject.transform.Find("Inventory");
-
         foreach (Transform slot in inventoryPanel)
         {
             // Check if the slot has any children
@@ -122,14 +151,34 @@ public class Interactions : MonoBehaviour
 
     private void InventoryScript_ItemRemoved(object sender, InventoryEventArgs e)
     {
-        GameObject otherGameObject = GameObject.Find("Screen");
-        Transform inventoryPanel = otherGameObject.transform.Find("Inventory");
-
         foreach (Transform slot in inventoryPanel)
         {
             Transform imageTransform = slot.GetChild(0).GetChild(0);
             Image image = imageTransform.GetComponent<Image>();
             ItemDragHandler itemDragHandler = imageTransform.GetComponent<ItemDragHandler>();
+            InventoryVariable inventoryVariable = imageTransform.GetComponent<InventoryVariable>();
+
+            Transform propsTransform = transform.Find("Props");
+
+            if (propsTransform != null)
+            {
+                Transform trashcanTransform = propsTransform.Find("Trashcan");
+                if (trashcanTransform != null)
+                {
+                    trashcanController = trashcanTransform.GetComponent<TrashcanController>();
+                    if (trashcanController != null)
+                    {
+                        if (trashcanController.jenisTempatSampah == inventoryVariable.jenisSampah)
+                        {
+
+                        }
+                    }
+                }
+            }
+            else
+            {
+                Debug.LogError("Props GameObject not found");
+            }
 
             if (itemDragHandler.Item.Equals(e.Item))
             {
@@ -139,6 +188,41 @@ public class Interactions : MonoBehaviour
                 break;
             }
         }
+    }
+
+    private void Interact_Trashcan()
+    {
+        inventory = inventoryPanel.GetComponent<Inventory>();
+        Transform imageTransform = inventoryPanel.GetChild(inventory.defaultSelectedItemIndex).GetChild(0);
+        Image image = imageTransform.GetChild(0).GetComponent<Image>();
+        InventoryVariable inventoryVariable = imageTransform.GetChild(0).GetComponent<InventoryVariable>();
+
+        trashcanController = _colliders[0].GetComponent<TrashcanController>();
+        if (trashcanController != null)
+        {
+            if (inventoryVariable.jenisSampah != "")
+            {
+                if (trashcanController.jenisTempatSampah == inventoryVariable.jenisSampah)
+                {
+                    image.enabled = false;
+                    image.sprite = null;
+                    Debug.Log("Buang Sampah");
+                }
+                else
+                {
+                    StartCoroutine(time_delay(mainChar.notificationPanel, 2f, "Jenis Sampah Tidak Sesuai"));
+                    Debug.Log("Gagal Buang Sampah");
+                }
+            }
+        }
+    }
+
+    IEnumerator time_delay(TextMeshProUGUI notificationPanel, float delayTime, string notificationText)
+    {
+        notificationPanel.gameObject.SetActive(true);
+        notificationPanel.text = notificationText;
+        yield return new WaitForSeconds(delayTime);
+        notificationPanel.gameObject.SetActive(false);
     }
 
     private void OnDrawGizmos()
