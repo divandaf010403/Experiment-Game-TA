@@ -7,6 +7,8 @@ TagManager:
   - Item
   - Trashcan
   - TrashMachine
+  - Shop
+  - BersihSampah
   layers:
   - Default
   - TransparentFX

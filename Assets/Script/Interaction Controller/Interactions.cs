@@ -1,3 +1,4 @@
+using Cinemachine.Utility;
 using System.Collections;
 using TMPro;
 using Unity.Burst.CompilerServices;
@@ -21,19 +22,29 @@ public class Interactions : MonoBehaviour
     TrashcanController trashcanController;
 
     [Header("Inventory")]
-    GameObject otherGameObject;
+    Transform otherGameObject;
     Transform inventoryPanel;
-    bool item1Found = false;
-    bool item2Found = false;
+
+    [Header("Ambil Variabel")]
+    GameController gc;
+    [SerializeField] private Vector3 newPosition;
+    [SerializeField] private Vector3 newRotation;
+    [SerializeField] private Vector3 oldPosition = Vector3.zero;
+    [SerializeField] private Vector3 oldRotation = Vector3.zero;
+
+    [Header("Quest")]
+    [SerializeField] public bool isQuestStart = false;
 
     // Start is called before the first frame update
     void Start()
     {
-        mainChar = GetComponent<MainCharMovement>();
-        buttonInteract.SetActive(false);
-
-        otherGameObject = GameObject.Find("Screen");
+        otherGameObject = GameObject.Find("Screen").transform.GetChild(0);
         inventoryPanel = otherGameObject.transform.Find("Inventory");
+        GameObject gameController = GameObject.Find("GameController");
+
+        mainChar = GetComponent<MainCharMovement>();
+        gc = gameController.GetComponent<GameController>();
+        buttonInteract.SetActive(false);
 
         inventory.ItemAdded += InventoryScript_ItemAdded;
         inventory.ItemRemoved += InventoryScript_ItemRemoved;
@@ -42,42 +53,37 @@ public class Interactions : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
+        // Ambil Sampah
         _numFound = Physics.OverlapSphereNonAlloc(_interactPoint.position, _interactPointRadius, _colliders, _interactLayerMask);
-
-        for (int i = 0; i < _numFound; i++)
-        {
-            if (_colliders[i].CompareTag("Item"))
-            {
-                item1Found = true;
-                item2Found = false;
-            }
-            else if (_colliders[i].CompareTag("Trashcan"))
-            {
-                item1Found = false;
-                item2Found = true;
-            }
-            else
-            {
-                Debug.Log("Tidak Terdeteksi");
-                item1Found = false;
-                item2Found = false;
-            }
-        }
 
         if (_numFound > 0)
         {
-            if (item1Found)
+            if (_colliders[0].CompareTag("Item"))
             {
                 buttonInteract.SetActive(true);
             }
-            else if (item2Found)
+            else if (_colliders[0].CompareTag("Trashcan"))
             {
                 buttonInteract.SetActive(true);
+            }
+            else
+            {
+                buttonInteract.SetActive(false);
             }
         }
         else
         {
             buttonInteract.SetActive(false);
+        }
+
+        // Quest
+        if (isQuestStart)
+        {
+            mainChar.endMisiBtn.SetActive(true);
+        }
+        else
+        {
+            mainChar.endMisiBtn.SetActive(false);
         }
     }
 
@@ -85,11 +91,11 @@ public class Interactions : MonoBehaviour
     {
         if (_numFound > 0)
         {
-            if (item1Found)
+            if (_colliders[0].CompareTag("Item"))
             {
                 removeItem();
             }
-            else if (item2Found)
+            else if (_colliders[0].CompareTag("Trashcan"))
             {
                 Interact_Trashcan();
             }
@@ -206,6 +212,7 @@ public class Interactions : MonoBehaviour
                 {
                     image.enabled = false;
                     image.sprite = null;
+                    inventoryVariable.jenisSampah = "";
                     Debug.Log("Buang Sampah");
                 }
                 else
@@ -229,5 +236,76 @@ public class Interactions : MonoBehaviour
     {
         Gizmos.color = Color.red;
         Gizmos.DrawWireSphere(_interactPoint.position, _interactPointRadius);
+    }
+
+    private void OnTriggerEnter(Collider other)
+    {
+        if (other.CompareTag("BersihSampah"))
+        {
+            mainChar.mulaiMisiBtn.SetActive(true);
+            BersihSungai bersihSungaiScript = other.GetComponent<BersihSungai>();
+            newPosition = bersihSungaiScript.playerPositionChange.transform.position;
+            newRotation = bersihSungaiScript.playerPositionChange.transform.rotation.eulerAngles;
+        }
+    }
+
+    private void OnTriggerExit(Collider other)
+    {
+        mainChar.mulaiMisiBtn.SetActive(false);
+        newPosition = Vector3.zero;
+        newRotation = Vector3.zero;
+    }
+
+    public void Mulai_Misi()
+    {
+        try
+        {
+            oldPosition = gc.mainCharacter.transform.position;
+            oldRotation = new Vector3(0f, gc.mainCharacter.transform.eulerAngles.y, 0f);
+
+            mainChar.controller.enabled = false;
+            gc.mainCharacter.transform.position = newPosition;
+            gc.mainCharacter.transform.rotation = Quaternion.Euler(newRotation);
+            mainChar.controller.enabled = true;
+
+            gc.mainCamera.gameObject.SetActive(false);
+            gc.camera2.gameObject.SetActive(true);
+
+            mainChar.playerCamera = gc.camera2;
+            isQuestStart = true;
+
+            gc.mainUI.SetActive(false);
+            gc.bersihSungaiUI.SetActive(true);
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogError("Gagal mengubah posisi karakter: " + e.Message);
+        }
+    }
+
+    public void Selesai_Misi()
+    {
+        try
+        {
+            mainChar.controller.enabled = false;
+            gc.mainCharacter.transform.position = oldPosition;
+            gc.mainCharacter.transform.localRotation = Quaternion.Euler(oldRotation);
+            mainChar.controller.enabled = true;
+
+            gc.mainCamera.gameObject.SetActive(true);
+            gc.camera2.gameObject.SetActive(false);
+            oldPosition = Vector3.zero;
+            oldRotation = Vector3.zero;
+
+            mainChar.playerCamera = gc.mainCamera;
+            isQuestStart = false;
+
+            gc.mainUI.SetActive(true);
+            gc.bersihSungaiUI.SetActive(false);
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogError("Gagal mengubah posisi karakter: " + e.Message);
+        }
     }
 }
